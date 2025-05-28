@@ -1,0 +1,29 @@
+[build]
+  publish = "."
+  
+[build.environment]
+  NODE_VERSION = "18"
+
+[[headers]]
+  for = "/setup.sh"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Copyright = "© 2025 Marcelo D'ávila - Todos os direitos reservados"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-Copyright = "© 2025 Marcelo D'ávila"
+
+[[redirects]]
+  from = "/install"
+  to = "/setup.sh"
+  status = 200
+  
+[[redirects]]
+  from = "/marcelo"
+  to = "/setup.sh"
+  status = 200
