@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marcelo Setup Ultimate - 150+ Ferramentas</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%);
+            color: white; 
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container { 
+            max-width: 800px; 
+            background: rgba(0,0,0,0.4); 
+            padding: 50px; 
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            text-align: center;
+        }
+        h1 { 
+            font-size: 3.5em; 
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle {
+            font-size: 1.5em;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+        .install-section {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+        }
+        code { 
+            background: rgba(0,0,0,0.6); 
+            padding: 20px; 
+            border-radius: 10px; 
+            display: block; 
+            margin: 20px 0;
+            font-size: 18px;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            border-left: 4px solid #00ff88;
+            position: relative;
+        }
+        .copy-btn {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            background: #00ff88;
+            color: black;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .feature {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            transition: transform 0.3s;
+        }
+        .feature:hover { transform: translateY(-5px); }
+        .copyright {
+            margin-top: 40px;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+        .warning {
+            background: rgba(255,0,0,0.2);
+            border: 1px solid rgba(255,0,0,0.4);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 0.9em;
+        }
+        a { color: #00ff88; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Marcelo Setup Ultimate</h1>
+        <p class="subtitle">Sistema de Instalação - 150+ Ferramentas Open Source</p>
+        
+        <div class="install-section">
+            <h2>📦 Instalação Rápida:</h2>
+            <code>
+                bash &lt;(curl -sSL https://raw.githubusercontent.com/marcelo-davila-setup/alunos/main/setup.sh)
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copiar</button>
+            </code>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <h3>💬 Comunicação</h3>
+                <p>25 ferramentas: WhatsApp, Chatwoot, N8N, Telegram</p>
+            </div>
+            <div class="feature">
+                <h3>🌐 Desenvolvimento</h3>
+                <p>30 ferramentas: Docker, WordPress, Nginx, Node.js</p>
+            </div>
+            <div class="feature">
+                <h3>🗃️ Bancos de Dados</h3>
+                <p>20 ferramentas: PostgreSQL, MongoDB, Redis</p>
+            </div>
+            <div class="feature">
+                <h3>🤖 IA & Automação</h3>
+                <p>20 ferramentas: FlowiseAI, Langfuse, Dify</p>
+            </div>
+        </div>
+
+        <div class="warning">
+            <strong>⚖️ AVISO LEGAL:</strong> Sistema protegido por direitos autorais (Lei 9.610/98).
+        </div>
+
+        <div class="copyright">
+            <p><strong>© 2025 Marcelo D'ávila - Todos os direitos reservados</strong></p>
+            <p>📧 Suporte: <a href="mailto:suporte@marcelodavila.com.br">suporte@marcelodavila.com.br</a></p>
+        </div>
+    </div>
+
+    <script>
+        function copyToClipboard(btn) {
+            const code = btn.parentElement.textContent.replace('Copiar', '').trim();
+            navigator.clipboard.writeText(code);
+            btn.textContent = 'Copiado!';
+            setTimeout(() => btn.textContent = 'Copiar', 2000);
+        }
+    </script>
+</body>
+</html>
