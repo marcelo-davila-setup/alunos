@@ -1,29 +1,412 @@
+# ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+# ░                    SISTEMA DE AUTOMAÇÃO E IA v6.0                      ░
+# ░                        Configuração Netlify                            ░
+# ░                                                                         ░
+# ░                       Criado por: Marcelo D'ávila                       ░
+# ░                    Email: suporte@marcelodavila.com.br                  ░
+# ░                     © 2025 - Todos os direitos reservados               ░
+# ░                                                                         ░
+# ░  AVISO LEGAL: Este software é protegido por direitos autorais e leis    ░
+# ░  de propriedade intelectual. O uso não autorizado é proibido por lei.   ░
+# ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+# ===============================================
+# CONFIGURAÇÕES GERAIS DO SITE
+# ===============================================
 [build]
+  # Diretório de publicação
   publish = "."
   
-[build.environment]
-  NODE_VERSION = "18"
+  # Comando de build (se necessário)
+  command = "echo '🚀 Sistema de Automação e IA v6.0 - Build iniciado' && echo '👨‍💻 Desenvolvido por: Marcelo D\\'ávila' && echo '📧 Suporte: suporte@marcelodavila.com.br'"
+  
+  # Variáveis de ambiente do build
+  environment = { NODE_VERSION = "18", HUGO_VERSION = "0.100.2" }
 
-[[headers]]
-  for = "/setup.sh"
-  [headers.values]
-    Content-Type = "text/plain; charset=utf-8"
-    Cache-Control = "public, max-age=0, must-revalidate"
-    X-Copyright = "© 2025 Marcelo D'ávila - Todos os direitos reservados"
+# ===============================================
+# CONFIGURAÇÕES DE CONTEXTO
+# ===============================================
 
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Frame-Options = "DENY"
-    X-Content-Type-Options = "nosniff"
-    X-Copyright = "© 2025 Marcelo D'ávila"
+# Produção (branch main)
+[context.production]
+  command = "echo '🚀 Build de produção iniciado'"
+  
+  [context.production.environment]
+    SYSTEM_ENV = "production"
+    SYSTEM_NAME = "Sistema de Automação e IA"
+    SYSTEM_VERSION = "6.0"
+    AUTHOR = "Marcelo D'ávila"
+    AUTHOR_EMAIL = "suporte@marcelodavila.com.br"
+    COPYRIGHT = "© 2025 Marcelo D'ávila - Todos os direitos reservados"
+
+# Staging (branch develop)
+[context.deploy-preview]
+  command = "echo '🚧 Build de preview iniciado'"
+  
+  [context.deploy-preview.environment]
+    SYSTEM_ENV = "staging"
+    SYSTEM_NAME = "Sistema de Automação e IA (Staging)"
+
+# Branch develop
+[context.branch-deploy]
+  command = "echo '🔧 Build de desenvolvimento iniciado'"
+
+# ===============================================
+# REDIRECIONAMENTOS E REWRITES
+# ===============================================
+[[redirects]]
+  # Página principal
+  from = "/"
+  to = "/index.html"
+  status = 200
+  force = false
 
 [[redirects]]
+  # Documentação
+  from = "/docs/*"
+  to = "/README.md"
+  status = 200
+
+[[redirects]]
+  # API de saúde
+  from = "/health"
+  to = "/.netlify/functions/health"
+  status = 200
+
+[[redirects]]
+  # Download do setup
+  from = "/setup"
+  to = "/setup.sh"
+  status = 200
+  headers = {Content-Type = "application/x-sh"}
+
+[[redirects]]
+  # GitHub
+  from = "/github"
+  to = "https://github.com/marcelodavila/automation-system"
+  status = 301
+
+[[redirects]]
+  # Suporte
+  from = "/suporte"
+  to = "mailto:suporte@marcelodavila.com.br"
+  status = 301
+
+[[redirects]]
+  # Instalação via curl
   from = "/install"
   to = "/setup.sh"
   status = 200
-  
+  headers = {Content-Type = "text/plain"}
+
 [[redirects]]
-  from = "/marcelo"
-  to = "/setup.sh"
+  # SPA fallback
+  from = "/*"
+  to = "/index.html"
   status = 200
+
+# ===============================================
+# CABEÇALHOS DE SEGURANÇA
+# ===============================================
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Segurança geral
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    
+    # HTTPS
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    
+    # Política de conteúdo
+    Content-Security-Policy = """
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com;
+      font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com;
+      img-src 'self' data: https:;
+      connect-src 'self' https:;
+      media-src 'self';
+      object-src 'none';
+      child-src 'none';
+      frame-ancestors 'none';
+      form-action 'self';
+      base-uri 'self';
+    """
+    
+    # Informações do desenvolvedor
+    X-Developer = "Marcelo D'ávila"
+    X-Developer-Email = "suporte@marcelodavila.com.br"
+    X-Copyright = "© 2025 Marcelo D'ávila - Todos os direitos reservados"
+    X-System-Version = "6.0"
+    
+    # Cache control
+    Cache-Control = "public, max-age=3600"
+
+# Cabeçalhos específicos para arquivos estáticos
+[[headers]]
+  for = "*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+
+[[headers]]
+  for = "*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+
+[[headers]]
+  for = "*.woff2"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+
+# Cabeçalhos para arquivos de instalação
+[[headers]]
+  for = "*.sh"
+  [headers.values]
+    Content-Type = "application/x-sh"
+    Content-Disposition = "attachment"
+    X-Content-Type-Options = "nosniff"
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Cabeçalhos para documentação
+[[headers]]
+  for = "*.md"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"
+    Cache-Control = "public, max-age=1800"
+
+# ===============================================
+# CONFIGURAÇÕES DE EDGE FUNCTIONS
+# ===============================================
+[[edge_functions]]
+  function = "system-info"
+  path = "/api/system-info"
+
+[[edge_functions]]
+  function = "health-check"
+  path = "/api/health"
+
+[[edge_functions]]
+  function = "analytics"
+  path = "/api/analytics/*"
+
+# ===============================================
+# CONFIGURAÇÕES DE FORMULÁRIOS
+# ===============================================
+[build.processing]
+  skip_processing = false
+
+[build.processing.css]
+  bundle = true
+  minify = true
+
+[build.processing.js]
+  bundle = true
+  minify = true
+
+[build.processing.html]
+  pretty_urls = true
+
+[build.processing.images]
+  compress = true
+
+# ===============================================
+# CONFIGURAÇÕES DE PLUGINS
+# ===============================================
+[[plugins]]
+  package = "netlify-plugin-submit-sitemap"
+  
+  [plugins.inputs]
+    baseUrl = "https://automation-system.netlify.app"
+    sitemapPath = "/sitemap.xml"
+    ignorePeriod = 0
+    providers = [
+      "google",
+      "bing",
+      "yandex"
+    ]
+
+[[plugins]]
+  package = "@netlify/plugin-lighthouse"
+  
+  [plugins.inputs]
+    output_path = "reports/lighthouse.html"
+    thresholds = { performance = 0.9, accessibility = 0.9, "best-practices" = 0.9, seo = 0.9 }
+
+[[plugins]]
+  package = "netlify-plugin-checklinks"
+  
+  [plugins.inputs]
+    entryPoints = ["index.html"]
+    recursive = true
+    pretty = true
+    skipPatterns = ["mailto:*"]
+
+# ===============================================
+# CONFIGURAÇÕES DE SPLIT TESTING
+# ===============================================
+[[split_tests]]
+  id = "homepage-version"
+  path = "/"
+  branches = [
+    { branch = "main", percentage = "90%" },
+    { branch = "experiment", percentage = "10%" }
+  ]
+
+# ===============================================
+# CONFIGURAÇÕES DE ANALYTICS
+# ===============================================
+[analytics]
+  provider = "google"
+
+# ===============================================
+# CONFIGURAÇÕES DE NOTIFICAÇÕES
+# ===============================================
+[notifications]
+  enabled = true
+  
+  [[notifications.email]]
+    event = "deploy-succeeded"
+    email = "suporte@marcelodavila.com.br"
+
+  [[notifications.email]]
+    event = "deploy-failed"
+    email = "suporte@marcelodavila.com.br"
+
+  [[notifications.slack]]
+    event = "deploy-succeeded"
+    channel = "#deployments"
+    
+  [[notifications.slack]]
+    event = "deploy-failed"
+    channel = "#alerts"
+
+# ===============================================
+# VARIÁVEIS DE AMBIENTE
+# ===============================================
+[build.environment]
+  # Informações do sistema
+  SYSTEM_NAME = "Sistema de Automação e IA"
+  SYSTEM_VERSION = "6.0"
+  
+  # Desenvolvedor
+  AUTHOR = "Marcelo D'ávila"
+  AUTHOR_EMAIL = "suporte@marcelodavila.com.br"
+  COPYRIGHT = "© 2025 Marcelo D'ávila - Todos os direitos reservados"
+  
+  # URLs
+  SITE_URL = "https://automation-system.netlify.app"
+  API_URL = "https://api.automation-system.com"
+  
+  # Features
+  ENABLE_ANALYTICS = "true"
+  ENABLE_ERROR_REPORTING = "true"
+  ENABLE_PERFORMANCE_MONITORING = "true"
+  
+  # Build info
+  BUILD_TIMESTAMP = "auto"
+  NODE_ENV = "production"
+
+# ===============================================
+# CONFIGURAÇÕES DE FUNCTIONS
+# ===============================================
+[functions]
+  directory = "netlify/functions"
+  external_node_modules = ["axios", "lodash"]
+  
+  # Timeout para functions
+  timeout = 30
+  
+  # Runtime do Node.js
+  node_bundler = "esbuild"
+
+# ===============================================
+# CONFIGURAÇÕES DE DEV
+# ===============================================
+[dev]
+  command = "echo '🚀 Servidor de desenvolvimento iniciado'"
+  targetPort = 3000
+  port = 8888
+  publish = "."
+  autoLaunch = true
+  
+  [dev.env]
+    SYSTEM_ENV = "development"
+    DEBUG = "true"
+
+# ===============================================
+# CONFIGURAÇÕES AVANÇADAS
+# ===============================================
+
+# Configurações de deploy
+[build.ignore]
+  command = "git diff --quiet HEAD^ HEAD ."
+
+# Configurações de performance
+[build.processing.skip_processing]
+  css = false
+  js = false
+  html = false
+  images = false
+
+# Rate limiting
+[[rate_limiting]]
+  path = "/api/*"
+  window = "1m"
+  max = 100
+  
+[[rate_limiting]]
+  path = "/download/*"
+  window = "1m"
+  max = 10
+
+# Geo-location
+[[geo_ip]]
+  path = "/api/location"
+  
+# Custom domains
+[[custom_domains]]
+  domain = "automation-system.com"
+  branch = "main"
+
+# ===============================================
+# CONFIGURAÇÕES DE MONITORAMENTO
+# ===============================================
+[monitoring]
+  enabled = true
+  
+  [monitoring.uptime]
+    urls = [
+      "https://automation-system.netlify.app",
+      "https://automation-system.netlify.app/health"
+    ]
+    
+  [monitoring.performance]
+    enabled = true
+    threshold = 3000
+    
+  [monitoring.errors]
+    enabled = true
+    webhook = "https://hooks.slack.com/your-webhook"
+
+# ===============================================
+# METADADOS
+# ===============================================
+[site.metadata]
+  name = "Sistema de Automação e IA v6.0"
+  description = "300+ Ferramentas Profissionais para Automação, IA e Desenvolvimento"
+  author = "Marcelo D'ávila"
+  email = "suporte@marcelodavila.com.br"
+  version = "6.0"
+  copyright = "© 2025 Marcelo D'ávila - Todos os direitos reservados"
+  license = "Proprietária"
+  keywords = ["automação", "IA", "chatbots", "whatsapp", "workflows"]
+  category = "Software"
+  language = "pt-BR"
+  
+  [site.metadata.social]
+    github = "https://github.com/marcelodavila"
+    email = "mailto:suporte@marcelodavila.com.br"
+    website = "https://automation-system.netlify.app"
