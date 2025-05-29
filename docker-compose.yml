@@ -1,0 +1,708 @@
+# ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+# ░                    SISTEMA DE AUTOMAÇÃO E IA v6.0                      ░
+# ░                        Docker Compose Principal                        ░
+# ░                                                                         ░
+# ░                       Criado por: Marcelo D'ávila                       ░
+# ░                    Email: suporte@marcelodavila.com.br                  ░
+# ░                     © 2025 - Todos os direitos reservados               ░
+# ░                                                                         ░
+# ░  AVISO LEGAL: Este software é protegido por direitos autorais e leis    ░
+# ░  de propriedade intelectual. O uso não autorizado é proibido por lei.   ░
+# ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+version: '3.8'
+
+# ===============================================
+# REDES PERSONALIZADAS
+# ===============================================
+networks:
+  automation-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+    labels:
+      - "com.automation.network=main"
+      - "com.automation.author=Marcelo D'ávila"
+      - "com.automation.email=suporte@marcelodavila.com.br"
+
+  database-network:
+    driver: bridge
+    internal: true
+    labels:
+      - "com.automation.network=database"
+
+  monitoring-network:
+    driver: bridge
+    labels:
+      - "com.automation.network=monitoring"
+
+# ===============================================
+# VOLUMES PERSISTENTES
+# ===============================================
+volumes:
+  # Banco de dados principal
+  postgres_data:
+    driver: local
+    labels:
+      - "com.automation.volume=database"
+      - "com.automation.service=postgres"
+
+  # Cache Redis
+  redis_data:
+    driver: local
+    labels:
+      - "com.automation.volume=cache"
+      - "com.automation.service=redis"
+
+  # Armazenamento MinIO
+  minio_data:
+    driver: local
+    labels:
+      - "com.automation.volume=storage"
+      - "com.automation.service=minio"
+
+  # Dados do Typebot
+  typebot_data:
+    driver: local
+    labels:
+      - "com.automation.volume=application"
+      - "com.automation.service=typebot"
+
+  # Dados do N8N
+  n8n_data:
+    driver: local
+    labels:
+      - "com.automation.volume=automation"
+      - "com.automation.service=n8n"
+
+  # Dados do Chatwoot
+  chatwoot_data:
+    driver: local
+    labels:
+      - "com.automation.volume=support"
+      - "com.automation.service=chatwoot"
+
+  # Evolution API
+  evolution_data:
+    driver: local
+    labels:
+      - "com.automation.volume=whatsapp"
+      - "com.automation.service=evolution"
+
+  # Monitoramento
+  grafana_data:
+    driver: local
+    labels:
+      - "com.automation.volume=monitoring"
+      - "com.automation.service=grafana"
+
+  prometheus_data:
+    driver: local
+    labels:
+      - "com.automation.volume=monitoring"
+      - "com.automation.service=prometheus"
+
+  # Logs centralizados
+  logs_data:
+    driver: local
+    labels:
+      - "com.automation.volume=logs"
+
+# ===============================================
+# SERVIÇOS PRINCIPAIS
+# ===============================================
+services:
+
+  # ===============================================
+  # PROXY REVERSO E LOAD BALANCER
+  # ===============================================
+  traefik:
+    image: traefik:v3.0
+    container_name: automation-traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=suporte@marcelodavila.com.br"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - automation-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "com.automation.service=proxy"
+      - "com.automation.author=Marcelo D'ávila"
+
+  # ===============================================
+  # BANCO DE DADOS PRINCIPAL - POSTGRESQL
+  # ===============================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: automation-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: automation_system
+      POSTGRES_USER: automation_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-AutomationDB123!}
+      POSTGRES_MULTIPLE_DATABASES: "typebot,n8n,chatwoot,evolution"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh:ro
+    networks:
+      - database-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U automation_admin -d automation_system"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "com.automation.service=database"
+      - "com.automation.author=Marcelo D'ávila"
+      - "com.automation.email=suporte@marcelodavila.com.br"
+
+  # ===============================================
+  # CACHE E SESSÕES - REDIS
+  # ===============================================
+  redis:
+    image: redis:7-alpine
+    container_name: automation-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-AutomationRedis123!}
+    volumes:
+      - redis_data:/data
+    networks:
+      - automation-network
+      - database-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.automation.service=cache"
+      - "com.automation.author=Marcelo D'ávila"
+
+  # ===============================================
+  # ARMAZENAMENTO - MINIO S3
+  # ===============================================
+  minio:
+    image: minio/minio:latest
+    container_name: automation-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-AutomationMinio123!}
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - automation-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio.rule=Host(`minio.localhost`)"
+      - "traefik.http.routers.minio.service=minio"
+      - "traefik.http.services.minio.loadbalancer.server.port=9001"
+      - "com.automation.service=storage"
+      - "com.automation.author=Marcelo D'ávila"
+
+  # ===============================================
+  # TYPEBOT - CHATBOT BUILDER
+  # ===============================================
+  typebot-builder:
+    image: baptistearno/typebot-builder:latest
+    container_name: automation-typebot-builder
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://automation_admin:${POSTGRES_PASSWORD:-AutomationDB123!}@postgres:5432/typebot
+      NEXTAUTH_URL: http://localhost:3001
+      NEXTAUTH_SECRET: ${TYPEBOT_NEXTAUTH_SECRET:-TypebotNextAuth123!}
+      ENCRYPTION_SECRET: ${TYPEBOT_ENCRYPTION_SECRET:-TypebotEncryption123!}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@automation-system.com}
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-AutomationMinio123!}
+      S3_BUCKET: typebot-storage
+    ports:
+      - "3001:3000"
+    networks:
+      - automation-network
+      - database-network
+    volumes:
+      - typebot_data:/app/packages/schemas/prisma/db
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.typebot-builder.rule=Host(`typebot.localhost`)"
+      - "traefik.http.routers.typebot-builder.service=typebot-builder"
+      - "traefik.http.services.typebot-builder.loadbalancer.server.port=3000"
+      - "com.automation.service=chatbot"
+      - "com.automation.component=builder"
+      - "com.automation.author=Marcelo D'ávila"
+
+  typebot-viewer:
+    image: baptistearno/typebot-viewer:latest
+    container_name: automation-typebot-viewer
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://automation_admin:${POSTGRES_PASSWORD:-AutomationDB123!}@postgres:5432/typebot
+      NEXTAUTH_URL: http://localhost:3002
+      NEXTAUTH_SECRET: ${TYPEBOT_NEXTAUTH_SECRET:-TypebotNextAuth123!}
+      ENCRYPTION_SECRET: ${TYPEBOT_ENCRYPTION_SECRET:-TypebotEncryption123!}
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-AutomationMinio123!}
+      S3_BUCKET: typebot-storage
+    ports:
+      - "3002:3000"
+    networks:
+      - automation-network
+      - database-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.typebot-viewer.rule=Host(`chat.localhost`)"
+      - "traefik.http.routers.typebot-viewer.service=typebot-viewer"
+      - "traefik.http.services.typebot-viewer.loadbalancer.server.port=3000"
+      - "com.automation.service=chatbot"
+      - "com.automation.component=viewer"
+      - "com.automation.author=Marcelo D'ávila"
+
+  # ===============================================
+  # N8N - WORKFLOW AUTOMATION
+  # ===============================================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: automation-n8n
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: automation_admin
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-AutomationDB123!}
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD:-AutomationRedis123!}
+      N8N_BASIC_AUTH_ACTIVE: true
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD:-N8NAdmin123!}
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      GENERIC_TIMEZONE: America/Sao_Paulo
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-N8NEncryption123!}
+      N8N_USER_FOLDER: /home/node/.n8n
+      N8N_TEMPLATES_ENABLED: true
+      N8N_ONBOARDING_FLOW_DISABLED: false
+      N8N_METRICS: true
+      N8N_DIAGNOSTICS_ENABLED: true
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/backup:/backup
+      - ./n8n/custom:/home/node/.n8n/custom
+    networks:
+      - automation-network
+      - database-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.localhost`)"
+      - "traefik.http.routers.n8n.service=n8n"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+      - "com.automation.service=automation"
+      - "com.automation.author=Marcelo D'ávila"
+
+  # ===============================================
+  # EVOLUTION API - WHATSAPP
+  # ===============================================
+  evolution-api:
+    image: davidsongomes/evolution-api:latest
+    container_name: automation-evolution
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SERVER_TYPE: http
+      SERVER_PORT: 8080
+      CORS_ORIGIN: "*"
+      CORS_METHODS: "GET,POST,PUT,DELETE"
+      CORS_CREDENTIALS: true
+      LOG_LEVEL: ERROR
+      LOG_COLOR: true
+      LOG_BAILEYS: false
+      DEL_INSTANCE: false
+      PROVIDER_HOST: http://localhost:8080
+      PROVIDER_PORT: 8080
+      DATABASE_ENABLED: true
+      DATABASE_CONNECTION_URI: postgresql://automation_admin:${POSTGRES_PASSWORD:-AutomationDB123!}@postgres:5432/evolution
+      DATABASE_CONNECTION_CLIENT_NAME: evolution_api
+      REDIS_ENABLED: true
+      REDIS_URI: redis://:${REDIS_PASSWORD:-AutomationRedis123!}@redis:6379
+      CACHE_REDIS_ENABLED: true
+      CACHE_REDIS_URI: redis://:${REDIS_PASSWORD:-AutomationRedis123!}@redis:6379
+      CACHE_REDIS_PREFIX_KEY: evolution_api
+      CACHE_LOCAL_ENABLED: false
+      WEBHOOK_GLOBAL_URL: ""
+      WEBHOOK_GLOBAL_ENABLED: false
+      CONFIG_SESSION_PHONE_CLIENT: "Evolution API - Marcelo D'ávila"
+      CONFIG_SESSION_PHONE_NAME: "Chrome"
+      QRCODE_LIMIT: 30
+      AUTHENTICATION_TYPE: jwt
+      AUTHENTICATION_JWT_EXPIRIN_IN: 3600
+      AUTHENTICATION_JWT_SECRET: ${EVOLUTION_JWT_SECRET:-EvolutionJWT123!}
+      AUTHENTICATION_API_KEY_LIMIT: 10
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: true
+      LANGUAGE: pt-BR
+      S3_ENABLED: true
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-AutomationMinio123!}
+      S3_BUCKET: evolution-api
+      S3_PORT: 9000
+      S3_ENDPOINT: http://minio:9000
+      S3_USE_SSL: false
+    ports:
+      - "8080:8080"
+    volumes:
+      - evolution_data:/evolution/instances
+      - evolution_data:/evolution/store
+    networks:
+      - automation-network
+      - database-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.evolution.rule=Host(`whatsapp.localhost`)"
+      - "traefik.http.routers.evolution.service=evolution"
+      - "traefik.http.services.evolution.loadbalancer.server.port=8080"
+      - "com.automation.service=whatsapp"
+      - "com.automation.author=Marcelo D'ávila"
+
+  # ===============================================
+  # CHATWOOT - CUSTOMER SUPPORT
+  # ===============================================
+  chatwoot-rails:
+    image: chatwoot/chatwoot:latest
+    container_name: automation-chatwoot
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      RAILS_ENV: production
+      INSTALLATION_ENV: docker
+      SECRET_KEY_BASE: ${CHATWOOT_SECRET_KEY_BASE:-ChatwootSecretKey123!}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DATABASE: chatwoot
+      POSTGRES_USERNAME: automation_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-AutomationDB123!}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-AutomationRedis123!}@redis:6379
+      RAILS_MAX_THREADS: 5
+      FRONTEND_URL: http://localhost:3000
+      DEFAULT_LOCALE: pt_BR
+      FORCE_SSL: false
+      ENABLE_ACCOUNT_SIGNUP: true
+      MAILER_SENDER_EMAIL: ${MAILER_SENDER_EMAIL:-noreply@automation-system.com}
+      SMTP_DOMAIN: ${SMTP_DOMAIN:-automation-system.com}
+      SMTP_ADDRESS: ${SMTP_ADDRESS:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_AUTHENTICATION: plain
+      SMTP_ENABLE_STARTTLS_AUTO: true
+      MAILER_INBOUND_EMAIL_DOMAIN: ${MAILER_INBOUND_EMAIL_DOMAIN:-automation-system.com}
+      ACTIVE_STORAGE_SERVICE: s3_compatible
+      STORAGE_BUCKET_NAME: chatwoot-storage
+      STORAGE_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      STORAGE_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-AutomationMinio123!}
+      STORAGE_REGION: us-east-1
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_FORCE_PATH_STYLE: true
+    ports:
+      - "3000:3000"
+    volumes:
+      - chatwoot_data:/app/storage
+    networks:
+      - automation-network
+      - database-network
+    entrypoint: docker/entrypoints/rails.sh
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.chatwoot.rule=Host(`support.localhost`)"
+      - "traefik.http.routers.chatwoot.service=chatwoot"
+      - "traefik.http.services.chatwoot.loadbalancer.server.port=3000"
+      - "com.automation.service=support"
+      - "com.automation.author=Marcelo D'ávila"
+
+  chatwoot-sidekiq:
+    image: chatwoot/chatwoot:latest
+    container_name: automation-chatwoot-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      RAILS_ENV: production
+      INSTALLATION_ENV: docker
+      SECRET_KEY_BASE: ${CHATWOOT_SECRET_KEY_BASE:-ChatwootSecretKey123!}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DATABASE: chatwoot
+      POSTGRES_USERNAME: automation_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-AutomationDB123!}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-AutomationRedis123!}@redis:6379
+      RAILS_MAX_THREADS: 5
+    volumes:
+      - chatwoot_data:/app/storage
+    networks:
+      - automation-network
+      - database-network
+    entrypoint: docker/entrypoints/sidekiq.sh
+    labels:
+      - "com.automation.service=support"
+      - "com.automation.component=worker"
+      - "com.automation.author=Marcelo D'ávila"
+
+  # ===============================================
+  # MONITORAMENTO - PROMETHEUS
+  # ===============================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: automation-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - monitoring-network
+      - automation-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`prometheus.localhost`)"
+      - "traefik.http.routers.prometheus.service=prometheus"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+      - "com.automation.service=monitoring"
+      - "com.automation.component=metrics"
+      - "com.automation.author=Marcelo D'ávila"
+
+  # ===============================================
+  # VISUALIZAÇÃO - GRAFANA
+  # ===============================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: automation-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-GrafanaAdmin123!}
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+      GF_SERVER_DOMAIN: localhost
+      GF_SERVER_ROOT_URL: http://localhost:3001/
+      GF_DATABASE_TYPE: postgres
+      GF_DATABASE_HOST: postgres:5432
+      GF_DATABASE_NAME: grafana
+      GF_DATABASE_USER: automation_admin
+      GF_DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-AutomationDB123!}
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - monitoring-network
+      - database-network
+      - automation-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.localhost`)"
+      - "traefik.http.routers.grafana.service=grafana"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - "com.automation.service=monitoring"
+      - "com.automation.component=visualization"
+      - "com.automation.author=Marcelo D'ávila"
+
+  # ===============================================
+  # GESTÃO DE CONTAINERS - PORTAINER
+  # ===============================================
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: automation-portainer
+    restart: unless-stopped
+    command: -H unix:///var/run/docker.sock
+    ports:
+      - "9443:9443"
+      - "8000:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - automation-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.localhost`)"
+      - "traefik.http.routers.portainer.service=portainer"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+      - "com.automation.service=management"
+      - "com.automation.author=Marcelo D'ávila"
+
+  # ===============================================
+  # BACKUP AUTOMATIZADO
+  # ===============================================
+  backup-service:
+    image: alpine:latest
+    container_name: automation-backup
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: automation_system
+      POSTGRES_USER: automation_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-AutomationDB123!}
+      BACKUP_RETENTION_DAYS: 30
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-AutomationMinio123!}
+      S3_BUCKET: automation-backups
+    volumes:
+      - ./scripts/backup.sh:/backup.sh:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - backup_data:/backups
+    networks:
+      - database-network
+      - automation-network
+    entrypoint: |
+      sh -c '
+        apk add --no-cache postgresql-client curl docker-cli
+        chmod +x /backup.sh
+        while true; do
+          echo "🔄 Iniciando backup automático - $$(date)"
+          /backup.sh
+          echo "✅ Backup concluído - $$(date)"
+          sleep 86400  # 24 horas
+        done
+      '
+    labels:
+      - "com.automation.service=backup"
+      - "com.automation.author=Marcelo D'ávila"
+
+  # ===============================================
+  # HEALTHCHECK E MONITORING
+  # ===============================================
+  health-monitor:
+    image: alpine:latest
+    container_name: automation-health
+    restart: unless-stopped
+    environment:
+      SERVICES_TO_MONITOR: "postgres,redis,minio,typebot-builder,n8n,evolution-api,chatwoot-rails"
+      CHECK_INTERVAL: 60
+      ALERT_EMAIL: ${ALERT_EMAIL:-suporte@marcelodavila.com.br}
+    volumes:
+      - ./scripts/health-monitor.sh:/health-monitor.sh:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - automation-network
+    entrypoint: |
+      sh -c '
+        apk add --no-cache curl docker-cli
+        chmod +x /health-monitor.sh
+        while true; do
+          /health-monitor.sh
+          sleep $$CHECK_INTERVAL
+        done
+      '
+    labels:
+      - "com.automation.service=health"
+      - "com.automation.author=Marcelo D'ávila"
+
+# ===============================================
+# VOLUMES ADICIONAIS
+# ===============================================
+volumes:
+  portainer_data:
+    driver: local
+    labels:
+      - "com.automation.volume=management"
+  
+  backup_data:
+    driver: local
+    labels:
+      - "com.automation.volume=backup"
+
+# ===============================================
+# CONFIGURAÇÕES GLOBAIS
+# ===============================================
+# Labels globais para todos os serviços
+x-common-labels: &common-labels
+  com.automation.system: "Sistema de Automação e IA v6.0"
+  com.automation.author: "Marcelo D'ávila"
+  com.automation.email: "suporte@marcelodavila.com.br"
+  com.automation.copyright: "© 2025 Marcelo D'ávila - Todos os direitos reservados"
+  com.automation.license: "Proprietária"
+  com.automation.version: "6.0"
